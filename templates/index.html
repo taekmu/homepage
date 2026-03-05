@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>사용자 목록 관리</title>
+    <style>
+        table { border-collapse: collapse; width: 80%; margin: auto; }
+        th, td { border: 1px solid #999; padding: 6px; text-align: center; }
+        th { background: #f5f5f5; }
+        form { display: inline; }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>    
+</head>
+<body class="bg-slate-950 text-slate-10 min-h-screen p-8">
+<h1 class="text-3xl font-bold text-center text-white mb-8">사용자 목록 관리</h1>
+<form action="/add" method="post" 
+      style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 20px;">
+    <div class="text-slate-400 text-sm">
+        아이디: <input type="text" name="user_id" required>
+    </div>
+    <div class="text-slate-400 text-sm">
+        이름: <input type="text" name="user_name" required>
+    </div>
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md">추가</button>
+</form>
+
+<table>
+<thead>
+    <tr><th>No</th><th>User ID</th><th>User Name</th><th>Actions</th></tr>
+</thead>
+<tbody class="text-slate-300">
+    {% for row in rows %}
+    <tr>
+        <td>{{ row.no }}</td>
+        <td>{{ row.user_id }}</td>
+        <td>{{ row.user_name }}</td>
+        <td>
+            <!-- 삭제 -->
+            <form action="/delete" method="post">
+                <input type="hidden" name="no" value="{{ row.no }}">
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-xs">삭제</button>
+            </form>
+            <!-- 수정 -->
+            <form action="/update" method="post">
+                <input type="hidden" name="no" value="{{ row.no }}">
+                <input class="bg-slate-800 text-slate-300 px-2 py-1 rounded-md text-xs" type="text" name="user_id" value="{{ row.user_id }}" required>
+                <input class="bg-slate-800 text-slate-300 px-2 py-1 rounded-md text-xs" type="text" name="user_name" value="{{ row.user_name }}" required>
+                <button type="submit" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded-md text-xs">수정</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>거래대금 TOP 10 실시간 대시보드</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; font-family: sans-serif; padding: 20px; }
+        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
+        .chart-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; position: relative; transition: all 0.3s ease; }
+        .coin-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .ticker { font-size: 1.2rem; font-weight: bold; color: #f0f6fc; }
+        .price { font-size: 1.5rem; font-weight: 800; display: block; }
+        .trade-value { font-size: 0.8rem; color: #8b949e; margin-top: 5px; }
+        .chart-wrapper { height: 160px; margin-top: 15px; }
+        .prob-container { margin-top: 10px; text-align: left; width: 150px; }
+        .prob-label { font-size: 0.75rem; color: #8b949e; display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .prob-bar-bg { background: #30363d; height: 6px; border-radius: 3px; overflow: hidden; }
+        .prob-bar-fill { height: 100%; width: 0%; transition: width 0.5s ease-in-out; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; color: #58a6ff; margin-bottom: 30px;">💰 실시간 거래대금 TOP 10 모니터링</h1>
+    <div id="grid" class="grid-container"></div>
+
+    <script>
+        const charts = {};
+
+        function createChartCard(ticker) {
+            const grid = document.getElementById('grid');
+            const card = document.createElement('div');
+            card.className = 'chart-card';
+            card.id = `card-${ticker}`; // 카드 자체에 ID 부여
+            card.innerHTML = `
+                <div class="coin-header">
+                    <div>
+                        <span class="ticker">${ticker}/KRW</span>
+                        <div id="value-${ticker}" class="trade-value">거래대금: -</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span id="price-${ticker}" class="price">0</span>
+                        <div class="prob-container">
+                            <div class="prob-label">
+                                <span>상승 가능성</span>
+                                <span id="prob-num-${ticker}" style="font-weight: bold;">0%</span>
+                            </div>
+                            <div class="prob-bar-bg">
+                                <div id="prob-bar-${ticker}" class="prob-bar-fill"></div>
+                            </div>
+                        </div>
+                    </div>                    
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="canvas-${ticker}"></canvas>
+                </div>
+            `;
+            grid.appendChild(card);
+
+            const ctx = document.getElementById(`canvas-${ticker}`).getContext('2d');
+            return new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#58a6ff', borderWidth: 2, fill: true, tension: 0.2, pointRadius: 0 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false }, 
+                        y: { beginAtZero: false, grid: { color: '#21262d' }, ticks: { color: '#484f58', font: { size: 10 } } } 
+                    },
+                    animation: false
+                }
+            });
+        }
+
+        const socket = new WebSocket(`ws://${window.location.host}/ws/stats`);
+
+        socket.onmessage = (event) => {
+            const coins = JSON.parse(event.data);
+
+            coins.forEach((coin, index) => {
+                // 1. 차트가 없으면 생성
+                if (!charts[coin.ticker]) {
+                    charts[coin.ticker] = createChartCard(coin.ticker);
+                }
+
+                // 2. 루프 내부에서 각 코인의 요소를 정확히 참조
+                const priceEl = document.getElementById(`price-${coin.ticker}`);
+                const valueEl = document.getElementById(`value-${coin.ticker}`);
+                const probNumEl = document.getElementById(`prob-num-${coin.ticker}`);
+                const probBarEl = document.getElementById(`prob-bar-${coin.ticker}`);
+                const card = document.getElementById(`card-${coin.ticker}`);
+                const chart = charts[coin.ticker];
+
+                const activeColor = coin.change_rate >= 0 ? '#ff3b30' : '#007aff';
+
+                // 3. 확률 및 스타일 업데이트
+                if (probNumEl && probBarEl) {
+                    const prob = coin.probability || 50;
+                    probNumEl.textContent = `${prob}%`;
+                    probBarEl.style.width = `${prob}%`;
+
+                    if (prob >= 70) {
+                        probBarEl.style.backgroundColor = '#238636'; 
+                        probNumEl.style.color = '#3fb950';
+                    } else if (prob <= 40) {
+                        probBarEl.style.backgroundColor = '#da3633';
+                        probNumEl.style.color = '#f85149';
+                    } else {
+                        probBarEl.style.backgroundColor = '#8b949e';
+                        probNumEl.style.color = '#8b949e';
+                    }
+                }
+
+                // 4. 가격 및 거래대금 업데이트
+                if (priceEl) {
+                    priceEl.textContent = Number(coin.price).toLocaleString() + " 원";
+                    priceEl.style.color = activeColor;
+                }
+                
+                if (valueEl) {
+                    const eokValue = (coin.value_24h / 100000000).toFixed(0);
+                    valueEl.textContent = `24h 거래대금: 약 ${Number(eokValue).toLocaleString()}억`;
+                }
+
+                // 5. 순서 보정 및 차트 데이터 갱신
+                card.style.order = index;
+
+                chart.data.labels.push(coin.timestamp);
+                chart.data.datasets[0].data.push(coin.price);
+                chart.data.datasets[0].borderColor = activeColor;
+                chart.data.datasets[0].backgroundColor = coin.change_rate >= 0 ? 'rgba(255, 59, 48, 0.05)' : 'rgba(0, 122, 255, 0.05)';
+
+                if (chart.data.labels.length > 30) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+
+                // Y축 스케일 최적화
+                const dataValues = chart.data.datasets[0].data;
+                const minVal = Math.min(...dataValues);
+                const maxVal = Math.max(...dataValues);
+                const margin = (maxVal - minVal) * 0.2 || (coin.price * 0.0005);
+                chart.options.scales.y.min = minVal - margin;
+                chart.options.scales.y.max = maxVal + margin;
+
+                chart.update();
+            });
+        };
+    </script>
+</body>
+</html>

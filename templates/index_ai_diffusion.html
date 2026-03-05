@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Local Stable Diffusion</title>
+<style>
+body { font-family: Arial; padding:20px; background:#111; color:white; }
+input { width:60%; padding:10px; margin-right:10px; }
+button { padding:10px; }
+img { max-width:100%; margin-top:10px; border:1px solid #444; }
+</style>
+</head>
+<body>
+
+<h2>🎨 Local Stable Diffusion 1.5</h2>
+
+<form method="post" action="/generate">
+    <input type="text" name="prompt" placeholder="이미지 설명 입력" required>
+    <button type="submit">Generate</button>
+</form>
+
+{% if img_data %}
+<h3>Prompt: {{ prompt }}</h3>
+<img src="data:image/png;base64,{{ img_data }}" alt="Generated Image">
+{% endif %}
+
+</body>
+</html>

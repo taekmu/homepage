@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Ollama Client</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-xl w-full bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-xl">
+        <h1 class="text-2xl font-bold mb-6 text-blue-400">Local AI Chat</h1>
+
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Select Model</label>
+            <select id="modelSelect" class="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg outline-none focus:border-blue-500">
+                <option>모델 로딩 중...</option>
+            </select>
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Your Message</label>
+            <textarea id="userInput" rows="3" class="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg outline-none focus:border-blue-500" placeholder="인사를 건네보세요!"></textarea>
+        </div>
+
+        <button onclick="sendChat()" id="sendBtn" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold transition-all">
+            전송하기
+        </button>
+
+        <div class="mt-8 p-4 bg-black/40 border border-slate-800 rounded-lg min-h-[100px]">
+            <p class="text-xs text-slate-500 font-bold mb-2 italic">AI RESPONSE</p>
+            <div id="aiResponse" class="text-slate-300 leading-relaxed text-sm whitespace-pre-wrap">대기 중...</div>
+        </div>
+    </div>
+
+    <script>
+        // 페이지 로드 시 모델 목록 가져오기
+        async function loadModels() {
+            try {
+                const res = await fetch('/models');
+                const data = await res.json();
+                const select = document.getElementById('modelSelect');
+                select.innerHTML = data.models.map(m => `<option value="${m}">${m}</option>`).join('');
+            } catch (err) {
+                alert("모델을 불러올 수 없습니다. Ollama를 확인하세요.");
+            }
+        }
+
+        async function sendChat() {
+            const model = document.getElementById('modelSelect').value;
+            const prompt = document.getElementById('userInput').value;
+            const responseDiv = document.getElementById('aiResponse');
+            const btn = document.getElementById('sendBtn');
+            //const timestamp = document.getElementById("timeDisplay");
+
+
+            if (!prompt) return alert("내용을 입력해주세요.");
+
+            // UI 업데이트
+            btn.disabled = true;
+            btn.innerText = "생성 중...";
+            responseDiv.innerText = "생각 중입니다...";
+            //timestamp.innerText = "";
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model, prompt })
+                });
+                const data = await res.json();
+                responseDiv.innerText = data.response;
+                // 2. 시간 출력 (서버에서 보낸 duration이 있을 때만)
+                if (data.duration !== undefined) {
+                    responseDiv.innerText += `\n\n⏱️ 소요 시간: ${data.duration}s`;
+                    console.log(`추론 완료: ${data.duration}초`);
+                }
+            } catch (err) {
+                responseDiv.innerText = "에러가 발생했습니다.";
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "전송하기";
+            }
+        }
+
+        loadModels();
+    </script>
+</body>
+</html>

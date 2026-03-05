@@ -1,0 +1,35 @@
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Response</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h1>Server Response</h1>
+    <p>{{ response }}</p>
+
+    <!-- Mode Selector for Agent Mode -->
+    <div class="mode-selector">
+        <button onclick="modeSelector('Agent')">Agent Mode</button>
+        <button onclick="modeSelector('Client')">Client Mode</button>
+    </div>
+
+    <!-- Code Block with Response Data -->
+    ```python
+index.html
+// ... existing code ...
+
+function serverResponse() {
+  // Return value from the server, processed here
+  return 'Server response: <pre>' + document.querySelector('.response') + '</pre>';
+}
+
+// ... rest of function ...
