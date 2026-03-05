@@ -1,83 +1,129 @@
 import asyncio
-import requests
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
-from fastapi.staticfiles import StaticFiles # 추가
+from fastapi.staticfiles import StaticFiles
 import httpx
+import random
 
 app = FastAPI()
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-client = httpx.AsyncClient()  # 글로벌 클라이언트로 변경
 
-# real_main.py 내 데이터 가공 부분에 추가
+client = httpx.AsyncClient()
+
+# 전역 데이터 저장소
+current_data = []
+
+# -----------------------------
+# 확률 계산
+# -----------------------------
 def calculate_probability(price, change_rate):
-    # 실제로는 과거 차트 데이터를 분석해야 하지만, 
-    # 여기서는 실시간 지표인 변동률과 랜덤 노이즈를 섞어 '예측 점수'를 시뮬레이션합니다.
-    # 과매도 상태(하락폭이 큼)에서 반등할 확률이나 추세 추종 로직을 적용할 수 있습니다.
-    
-    import random
-    base_prob = 50 + (change_rate * 0.5) # 변동폭이 클수록 추세 지속/반등 확률 반영 ->0.5로 하향조정
-    # 현재 가격의 끝자리를 활용해 심리적 지지/저항 '척도'를 시뮬레이션 (더 역동적임)
+    base_prob = 50 + (change_rate * 0.5)
     price_factor = (int(price) % 100) / 10
-    # 40% ~ 85% 사이에서 더 많이 흔들리도록 노이즈 강화
     noise = random.uniform(-10, 10)
+
     final_prob = base_prob + price_factor + noise
     return round(max(35, min(95, final_prob)), 1)
-    
+
+# -----------------------------
+# 빗썸 데이터 가져오기
+# -----------------------------
 async def get_bithumb_top_value():
     try:
-        # 모든 코인 정보 가져오기
         url = "https://api.bithumb.com/public/ticker/ALL_KRW"
-        #res = requests.get(url).json() 비동기방식 : 속도가 많이 느림 cup 점유율이 많이 올라감
         res = await client.get(url)
         res = res.json()
-        
-        if res['status'] == '0000':
-            all_data = res['data']
-            if 'date' in all_data: del all_data['date']
-            
-            # [핵심 수정] 거래금액(acc_trade_value_24H) 기준 내림차순 정렬
-            # 빗썸 API에서 acc_trade_value_24H는 최근 24시간 누적 거래액(KRW)입니다.
+
+        if res["status"] == "0000":
+
+            all_data = res["data"]
+
+            if "date" in all_data:
+                del all_data["date"]
+
             sorted_items = sorted(
-                all_data.items(), 
-                key=lambda x: float(x[1].get('acc_trade_value_24H', 0)), 
+                all_data.items(),
+                key=lambda x: float(x[1].get("acc_trade_value_24H", 0)),
                 reverse=True
             )[:10]
-            
+
             top10 = []
+
             for ticker, info in sorted_items:
+
+                price = float(info["closing_price"])
+                change_rate = float(info["fluctate_rate_24H"])
+
                 top10.append({
                     "ticker": ticker,
-                    "price": float(info['closing_price']),
-                    "change_rate": float(info['fluctate_rate_24H']),
-                    "value_24h": float(info['acc_trade_value_24H']), # 거래금액 추가
-                    "probability": calculate_probability(float(info['closing_price']), float(info['fluctate_rate_24H'])),
+                    "price": price,
+                    "change_rate": change_rate,
+                    "value_24h": float(info["acc_trade_value_24H"]),
+                    "probability": calculate_probability(price, change_rate),
                     "timestamp": datetime.now().strftime("%H:%M:%S")
                 })
-            return top10
-    except Exception as e:
-        print(f"Server Error: {e}")
-        return []
 
+            return top10
+
+    except Exception as e:
+        print("Server Error:", e)
+
+    return []
+
+# -----------------------------
+# 백그라운드 루프 (핵심)
+# -----------------------------
+async def data_fetch_loop():
+    global current_data
+
+    while True:
+        data = await get_bithumb_top_value()
+
+        if data:
+            current_data = data
+
+        await asyncio.sleep(2)
+
+# -----------------------------
+# 서버 시작 시 실행
+# -----------------------------
+@app.on_event("startup")
+async def startup_event():
+
+    asyncio.create_task(data_fetch_loop())
+
+# -----------------------------
+# HTML
+# -----------------------------
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("real.html", {"request": request})
 
+# -----------------------------
+# WebSocket
+# -----------------------------
 @app.websocket("/ws/stats")
 async def websocket_endpoint(websocket: WebSocket):
+
     await websocket.accept()
+
     try:
         while True:
-            data = await get_bithumb_top_value()
-            if data:
-                await websocket.send_json(data)
-            await asyncio.sleep(2)
+
+            if current_data:
+                await websocket.send_json(current_data)
+
+            await asyncio.sleep(1)
+
     except:
         pass
 
+# -----------------------------
+# 종료 시 httpx 종료
+# -----------------------------
 @app.on_event("shutdown")
 async def shutdown_event():
     await client.aclose()
