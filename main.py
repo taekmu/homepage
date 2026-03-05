@@ -5,11 +5,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from fastapi.staticfiles import StaticFiles # 추가
-
+import httpx
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+client = httpx.AsyncClient()  # 글로벌 클라이언트로 변경
+
 # real_main.py 내 데이터 가공 부분에 추가
 def calculate_probability(price, change_rate):
     # 실제로는 과거 차트 데이터를 분석해야 하지만, 
@@ -25,11 +27,13 @@ def calculate_probability(price, change_rate):
     final_prob = base_prob + price_factor + noise
     return round(max(35, min(95, final_prob)), 1)
     
-def get_bithumb_top_value():
+async def get_bithumb_top_value():
     try:
         # 모든 코인 정보 가져오기
         url = "https://api.bithumb.com/public/ticker/ALL_KRW"
-        res = requests.get(url).json()
+        #res = requests.get(url).json() 비동기방식 : 속도가 많이 느림 cup 점유율이 많이 올라감
+        res = await client.get(url)
+        res = res.json()
         
         if res['status'] == '0000':
             all_data = res['data']
@@ -67,7 +71,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
         while True:
-            data = get_bithumb_top_value()
+            data = await get_bithumb_top_value()
             if data:
                 await websocket.send_json(data)
             await asyncio.sleep(2)
