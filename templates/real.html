@@ -74,8 +74,10 @@
 
         //const socket = new WebSocket(`ws://${window.location.host}/ws/stats`);
         // 수정 코드: KOYEB 배포 시 https 프로토콜로 접속하므로 ws 대신 wss 사용
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const socket = new WebSocket(`${protocol}//${window.location.host}/ws/stats`);
+        let protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        let wsUrl = `${protocol}//${window.location.host}/ws/stats`;
+        console.log("Connecting to:", wsUrl); // 확인용 로그
+        const socket = new WebSocket(wsUrl);
 
         socket.onmessage = (event) => {
             const coins = JSON.parse(event.data);
