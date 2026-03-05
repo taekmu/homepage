@@ -70,6 +70,6 @@ async def websocket_endpoint(websocket: WebSocket):
             data = get_bithumb_top_value()
             if data:
                 await websocket.send_json(data)
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(2)
     except:
         pass
