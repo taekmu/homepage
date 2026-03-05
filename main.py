@@ -77,3 +77,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await asyncio.sleep(2)
     except:
         pass
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await client.aclose()
