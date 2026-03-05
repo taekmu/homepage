@@ -14,11 +14,14 @@ def calculate_probability(price, change_rate):
     # 과매도 상태(하락폭이 큼)에서 반등할 확률이나 추세 추종 로직을 적용할 수 있습니다.
     
     import random
-    base_prob = 50 + (change_rate * 2) # 변동폭이 클수록 추세 지속/반등 확률 반영
+    base_prob = 50 + (change_rate * 0.5) # 변동폭이 클수록 추세 지속/반등 확률 반영 ->0.5로 하향조정
+    # 현재 가격의 끝자리를 활용해 심리적 지지/저항 '척도'를 시뮬레이션 (더 역동적임)
+    price_factor = (int(price) % 100) / 10
+    # 40% ~ 85% 사이에서 더 많이 흔들리도록 노이즈 강화
+    noise = random.uniform(-10, 10)
+    final_prob = base_prob + price_factor + noise
+    return round(max(35, min(95, final_prob)), 1)
     
-    # 30% ~ 90% 사이로 보정
-    final_prob = max(30, min(90, base_prob + random.uniform(-5, 5)))
-    return round(final_prob, 1)
 def get_bithumb_top_value():
     try:
         # 모든 코인 정보 가져오기
