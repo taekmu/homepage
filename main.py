@@ -4,8 +4,11 @@ from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
+from fastapi.staticfiles import StaticFiles # 추가
+
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 # real_main.py 내 데이터 가공 부분에 추가
 def calculate_probability(price, change_rate):

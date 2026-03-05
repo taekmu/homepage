@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>거래대금 TOP 10 실시간 대시보드</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="static/js/chart.js"></script>
     <style>
         body { background-color: #0d1117; color: #c9d1d9; font-family: sans-serif; padding: 20px; }
         .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
@@ -24,13 +24,21 @@
     <div id="grid" class="grid-container"></div>
 
     <script>
-        const charts = {};
+    window.addEventListener('load', function() {
+        if (typeof Chart === 'undefined') {
+            console.error("Chart.js 로드 실패!");
+            return;
+        }
+        console.log("Chart.js 준비 완료!");
 
+        const charts = {}; // 차트 객체 저장소
+
+        // 1. 차트 카드 생성 함수
         function createChartCard(ticker) {
             const grid = document.getElementById('grid');
             const card = document.createElement('div');
             card.className = 'chart-card';
-            card.id = `card-${ticker}`; // 카드 자체에 ID 부여
+            card.id = `card-${ticker}`;
             card.innerHTML = `
                 <div class="coin-header">
                     <div>
@@ -72,37 +80,40 @@
             });
         }
 
-        //const socket = new WebSocket(`ws://${window.location.host}/ws/stats`);
-        // 수정 코드: KOYEB 배포 시 https 프로토콜로 접속하므로 ws 대신 wss 사용
-        let protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let wsUrl = `${protocol}//${window.location.host}/ws/stats`;
-        console.log("Connecting to:", wsUrl); // 확인용 로그
+        // 2. 웹소켓 설정 (중복 제거 및 자동 주소 감지)
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/stats`;
+        console.log("연결 시도:", wsUrl);
+        
         const socket = new WebSocket(wsUrl);
+
+        socket.onopen = () => console.log("✅ 서버와 연결되었습니다!");
+        socket.onerror = (err) => console.error("❌ 웹소켓 에러:", err);
 
         socket.onmessage = (event) => {
             const coins = JSON.parse(event.data);
+            
             coins.forEach((coin, index) => {
-                // 1. 차트가 없으면 생성
+                // 차트가 없으면 생성
                 if (!charts[coin.ticker]) {
                     charts[coin.ticker] = createChartCard(coin.ticker);
                 }
 
-                // 2. 루프 내부에서 각 코인의 요소를 정확히 참조
+                const chart = charts[coin.ticker];
                 const priceEl = document.getElementById(`price-${coin.ticker}`);
                 const valueEl = document.getElementById(`value-${coin.ticker}`);
                 const probNumEl = document.getElementById(`prob-num-${coin.ticker}`);
                 const probBarEl = document.getElementById(`prob-bar-${coin.ticker}`);
                 const card = document.getElementById(`card-${coin.ticker}`);
-                const chart = charts[coin.ticker];
 
                 const activeColor = coin.change_rate >= 0 ? '#ff3b30' : '#007aff';
 
-                // 3. 확률 및 스타일 업데이트
+                // 확률 업데이트
                 if (probNumEl && probBarEl) {
                     const prob = coin.probability || 50;
                     probNumEl.textContent = `${prob}%`;
                     probBarEl.style.width = `${prob}%`;
-
+                    
                     if (prob >= 70) {
                         probBarEl.style.backgroundColor = '#238636'; 
                         probNumEl.style.color = '#3fb950';
@@ -115,7 +126,7 @@
                     }
                 }
 
-                // 4. 가격 및 거래대금 업데이트
+                // 가격 및 거래대금 업데이트
                 if (priceEl) {
                     priceEl.textContent = Number(coin.price).toLocaleString() + " 원";
                     priceEl.style.color = activeColor;
@@ -126,10 +137,9 @@
                     valueEl.textContent = `24h 거래대금: 약 ${Number(eokValue).toLocaleString()}억`;
                 }
 
-                // 5. 순서 보정 및 차트 데이터 갱신
+                // 순서 및 차트 데이터 갱신
                 card.style.order = index;
-
-                chart.data.labels.push(coin.timestamp);
+                chart.data.labels.push(new Date().toLocaleTimeString());
                 chart.data.datasets[0].data.push(coin.price);
                 chart.data.datasets[0].borderColor = activeColor;
                 chart.data.datasets[0].backgroundColor = coin.change_rate >= 0 ? 'rgba(255, 59, 48, 0.05)' : 'rgba(0, 122, 255, 0.05)';
@@ -139,17 +149,10 @@
                     chart.data.datasets[0].data.shift();
                 }
 
-                // Y축 스케일 최적화
-                const dataValues = chart.data.datasets[0].data;
-                const minVal = Math.min(...dataValues);
-                const maxVal = Math.max(...dataValues);
-                const margin = (maxVal - minVal) * 0.2 || (coin.price * 0.0005);
-                chart.options.scales.y.min = minVal - margin;
-                chart.options.scales.y.max = maxVal + margin;
-
                 chart.update();
             });
         };
-    </script>
+    });
+</script>
 </body>
 </html>
