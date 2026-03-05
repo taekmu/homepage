@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>거래대금 TOP 10 실시간 대시보드</title>
-    <script src="static/js/chart.js"></script>
+    <!--<script src="static/js/chart.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+
+
     <style>
         body { background-color: #0d1117; color: #c9d1d9; font-family: sans-serif; padding: 20px; }
         .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
@@ -144,12 +148,12 @@
                 chart.data.datasets[0].borderColor = activeColor;
                 chart.data.datasets[0].backgroundColor = coin.change_rate >= 0 ? 'rgba(255, 59, 48, 0.05)' : 'rgba(0, 122, 255, 0.05)';
 
-                if (chart.data.labels.length > 30) {
+                if (chart.data.labels.length > 20) {
                     chart.data.labels.shift();
                     chart.data.datasets[0].data.shift();
                 }
 
-                chart.update();
+                chart.update('none');
             });
         };
     });
